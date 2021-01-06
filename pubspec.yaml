@@ -29,6 +29,8 @@ dependencies:
   tesseract_ocr: ^0.3.1
   file_picker: ^2.1.4
   flutter_spinkit: ^4.1.2+1
+  image: ^2.1.19
+  table_calendar: ^2.3.3
 
 
 
