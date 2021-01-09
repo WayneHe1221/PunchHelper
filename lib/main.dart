@@ -1,22 +1,30 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:core';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:html/parser.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:tesseract_ocr/tesseract_ocr.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:work_punch_app/CalendarTable.dart';
 
+import 'BottomSheetContent.dart';
+
 Map<String, String> headers = {};
 Map<String, String> captcha = {"insrand": "AAAA"};
+String imageFolderPath = "";
+String dataFolderPath = "";
 String imagePath = "";
+String loginDataPath = "";
 String companyUrl = "https://punch.stratevision.com/Punch/";
 
-var loginData = {'name': "waynehe", 'password': "1221", 'isRemeber': "true"};
+var loginData = {'name': "", 'password': "", 'isRemeber': "true"};
 
 void main() {
   return runApp(PunchHelper());
@@ -27,21 +35,75 @@ class PunchHelper extends StatefulWidget {
   _HomePageState createState() => _HomePageState();
 }
 
-class _HomePageState extends State<PunchHelper> {
-  bool _scanning = false, punchIn = false, punchOut = false, loginSuccess = false;
+class _HomePageState extends State<PunchHelper>{
+  bool _scanning = false, punchIn = false, punchOut = false, loginSuccess = false, isButtonLock = false, isBottomShow = false;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
+  PersistentBottomSheetController _controller;
   String _extractText = "Identification result";
   int _scanTime = 0;
   var _image;
   var punchResult;
-  CalendarController _controller;
+  CalendarController _calendarControllerController;
+  TextEditingController accountController, passwordController;
 
   @override
   void initState() {
     super.initState();
     print("init");
-    checkPunchStatus(loginData);
-    updateCurrentCaptchaImage(loginData);
-    _controller = CalendarController();
+    _setStoragePath();
+    _loadLoginData();
+
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+    _calendarControllerController = CalendarController();
+  }
+
+  void _showPersistentBottomSheet() {
+    if(isBottomShow){
+      print("bottom close");
+      _controller.close();
+    }else{
+      print("bottom open");
+      _controller = _scaffoldKey.currentState.showBottomSheet<void>((context) {
+          return BottomSheetContent(accountController, passwordController);
+        },
+      );
+    }
+    setState(() {
+      isBottomShow = !isBottomShow;
+    });
+  }
+  _setStoragePath() async {
+    var documentDirectory = await getApplicationDocumentsDirectory();
+    setState(() {
+      imageFolderPath = documentDirectory.path + "/images";
+      imagePath = imageFolderPath + "/pic.jpg";
+      dataFolderPath = documentDirectory.path + "/data";
+      loginDataPath = dataFolderPath + "/loginData.txt";
+    });
+    await Directory(imageFolderPath).create(recursive: true);
+    await Directory(dataFolderPath).create(recursive: true);
+  }
+
+  Future<void> _loadLoginData() async {
+    // loginData = jsonDecode(File(loginDataPath).readAsStringSync());
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      loginData['name'] = prefs.getString("name");
+      loginData['password'] = prefs.getString("password");
+
+      accountController = TextEditingController();
+      accountController.text = loginData['name'];
+      passwordController = TextEditingController();
+      passwordController.text = loginData['password'];
+    });
+    print(loginData['name']);
+    print(loginData['password']);
+
+    if(loginData['name'] != "" && loginData['password'] != ""){
+      updateCurrentCaptchaImage(loginData);
+    }
   }
 
   void updateImage(String imgPath) {
@@ -104,12 +166,7 @@ class _HomePageState extends State<PunchHelper> {
 
     // save the image
     response = await http.get(imageUrl, headers: headers);
-    var documentDirectory = await getApplicationDocumentsDirectory();
-    var firstPath = documentDirectory.path + "/images";
-    var filePathAndName = documentDirectory.path + '/images/pic.jpg';
-    imagePath = filePathAndName;
-    await Directory(firstPath).create(recursive: true);
-    File imageFile = new File(filePathAndName);
+    File imageFile = new File(imagePath);
     imageFile.writeAsBytesSync(response.bodyBytes);
 
     print("punchUrl: image exist ? " + imageFile.existsSync().toString());
@@ -119,7 +176,7 @@ class _HomePageState extends State<PunchHelper> {
     // parse captcha to text
     var translatedText;
     try {
-      translatedText = await TesseractOcr.extractText(filePathAndName);
+      translatedText = await TesseractOcr.extractText(imagePath);
       var num = int.parse(translatedText);
       translatedText = "$num";
     } catch (exception) {
@@ -164,15 +221,7 @@ class _HomePageState extends State<PunchHelper> {
     print("punchUrl: login status: $statusCode");
 
     var document = parse(response.body);
-    var hasPunchIn = false, hasPunchOut = false;
-    print(document.outerHtml);
-    if (document.outerHtml.contains("label label-default\">on")) {
-      hasPunchIn = true;
-    }
-    if (document.outerHtml.contains("label label-default\">off")) {
-      hasPunchOut = true;
-    }
-    updatePunchState(hasPunchIn, hasPunchOut);
+
   }
 
   Future<void> updateCurrentCaptchaImage(dynamic data) async {
@@ -198,17 +247,22 @@ class _HomePageState extends State<PunchHelper> {
 
     // save the image
     response = await http.get(imageUrl, headers: headers);
-    var documentDirectory = await getApplicationDocumentsDirectory();
-    var firstPath = documentDirectory.path + "/images";
-    var filePathAndName = documentDirectory.path + '/images/pic.jpg';
-    imagePath = filePathAndName;
-    await Directory(firstPath).create(recursive: true);
-    File imageFile = new File(filePathAndName);
+    File imageFile = new File(imagePath);
     imageFile.writeAsBytesSync(response.bodyBytes);
 
     print("updateCurrentCaptchaImage: image exist ? " +
         imageFile.existsSync().toString());
     updateImage(imagePath);
+
+    var hasPunchIn = false, hasPunchOut = false;
+    print(document.outerHtml);
+    if (document.outerHtml.contains("label label-default\">on")) {
+      hasPunchIn = true;
+    }
+    if (document.outerHtml.contains("label label-default\">off")) {
+      hasPunchOut = true;
+    }
+    updatePunchState(hasPunchIn, hasPunchOut);
   }
 
   void updateCookie(http.Response response) {
@@ -223,16 +277,22 @@ class _HomePageState extends State<PunchHelper> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+        theme: new ThemeData(
+          primarySwatch: Colors.deepPurple,
+          canvasColor: Colors.transparent,
+        ),
         home: Scaffold(
-      body: Column(children: [
-        SizedBox(
+          key: _scaffoldKey,
+          backgroundColor: Colors.white,
+          body: Column(children: [
+            SizedBox(
           height: 30,
         ),
-        new CalendarTable(_controller),
-        SizedBox(
+            new CalendarTable(_calendarControllerController),
+            SizedBox(
           height: 20,
         ),
-        Row(
+            Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             Card(
@@ -261,10 +321,10 @@ class _HomePageState extends State<PunchHelper> {
                   ),
           ],
         ),
-        SizedBox(
+          SizedBox(
           height: 20,
         ),
-        Row(
+          Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _image != null
@@ -279,34 +339,71 @@ class _HomePageState extends State<PunchHelper> {
             )),
           ],
         ),
-        SizedBox(
+            SizedBox(
           height: 20,
         ),
-        Center(
-            child: Text(
+            Center(
+              child: Text(
           'Scanning took $_scanTime ms',
           style: TextStyle(color: Colors.red),
         )),
-        Expanded(
-          child: Align(
-            alignment: FractionalOffset.bottomCenter,
-            child: MaterialButton(
-                child: Text(punchIn ? 'Punch Out' : "Punch In",
-                    style: TextStyle(color: Colors.black)),
-                minWidth: 200,
-                height: 50,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22.0)),
-                color: Colors.white,
-                onPressed: () async {
-                  await punchUrl(loginData);
-                }),
-          ),
-        ),
-        SizedBox(
-          height: 20,
-        ),
       ]),
-    ));
+          floatingActionButton: FloatingActionButton(
+            onPressed: () async {
+              print('Go punch: start');
+              if(isButtonLock){
+                print('Go punch: block punch button');
+              }else{
+                if(punchIn && punchOut){
+                  print('Go punch: already finish punch');
+                }else{
+                  isButtonLock = true;
+                  await punchUrl(loginData);
+                  isButtonLock = false;
+                }
+              }
+            },
+            child: (punchIn && punchOut) ? Icon(Icons.done) : punchIn ? Icon(Icons.logout) : Icon(Icons.login),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endDocked,
+          bottomNavigationBar: BottomAppBar(
+            shape: new CircularNotchedRectangle(),
+            color: Colors.orange,
+            child: IconTheme(
+              data: IconThemeData(color: Theme.of(context).colorScheme.onPrimary),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                  ),
+                  RaisedButton.icon(
+                    icon: isBottomShow ? Icon(Icons.arrow_drop_down_circle_outlined, color: Colors.white,) : Icon(Icons.person, color: Colors.white,),
+                    label: Text( isBottomShow ? "Save" : "Account setting",
+                      style: TextStyle(color: Colors.white),),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18.0),
+                      ),
+                    color: Colors.black45,
+                    onPressed: () async {
+                      if(isBottomShow){
+                        print(accountController.text);
+                        print(passwordController.text);
+                        if(accountController.text != "" && passwordController.text != ""){
+                          loginData['name'] = accountController.text;
+                          loginData['password'] = passwordController.text;
+
+                          final prefs = await SharedPreferences.getInstance();
+                          prefs.setString("name", loginData['name']);
+                          prefs.setString("password", loginData['password']);
+                        }
+                      }
+                      _showPersistentBottomSheet();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ));
   }
 }

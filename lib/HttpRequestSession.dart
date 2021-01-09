@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:core';
 import 'dart:io';
 
-import 'package:html/dom.dart';
 import 'package:html/parser.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -33,7 +32,7 @@ Future<int> punchUrl(dynamic data) async{
   // parse the result
   var document = parse(response.body);
   var imageUrl = companyUrl;
-  List<Element> images = document.querySelectorAll('div.col-sm-5 > img'); // take the target image url
+  var images = document.querySelectorAll('div.col-sm-5 > img'); // take the target image url
   for (var image in images) {
     print(image.attributes['src']);
     imageUrl = imageUrl + image.attributes['src'];
