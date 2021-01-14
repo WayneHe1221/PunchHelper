@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:core';
 import 'dart:io';
 
@@ -18,6 +17,7 @@ import 'BottomSheetContent.dart';
 
 Map<String, String> headers = {};
 Map<String, String> captcha = {"insrand": "AAAA"};
+Map<String, String> punchTimes = { "AM" : "", "PM" : ""};
 String imageFolderPath = "";
 String dataFolderPath = "";
 String imagePath = "";
@@ -39,8 +39,7 @@ class _HomePageState extends State<PunchHelper>{
   bool _scanning = false, punchIn = false, punchOut = false, loginSuccess = false, isButtonLock = false, isBottomShow = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   PersistentBottomSheetController _controller;
-  String _extractText = "Identification result";
-  int _scanTime = 0;
+  String _extractText = "Auto Read Result";
   var _image;
   var punchResult;
   CalendarController _calendarControllerController;
@@ -177,8 +176,7 @@ class _HomePageState extends State<PunchHelper>{
     var translatedText;
     try {
       translatedText = await TesseractOcr.extractText(imagePath);
-      var num = int.parse(translatedText);
-      translatedText = "$num";
+      translatedText = translatedText.toString().replaceAll(new RegExp(r"\s+"), "");
     } catch (exception) {
       print(exception.toString());
     }
@@ -206,22 +204,6 @@ class _HomePageState extends State<PunchHelper>{
     updatePunchState(hasPunchIn, hasPunchOut);
 
     return statusCode;
-  }
-
-  Future<void> checkPunchStatus(dynamic data) async {
-    // login the web
-    var response = await http.post(companyUrl + "0-0action.jsp",
-        body: data, headers: headers);
-    updateCookie(response);
-    checkLogin(response.statusCode);
-
-    // request login page
-    response = await http.get(companyUrl + "1-1.jsp", headers: headers);
-    var statusCode = response.statusCode;
-    print("punchUrl: login status: $statusCode");
-
-    var document = parse(response.body);
-
   }
 
   Future<void> updateCurrentCaptchaImage(dynamic data) async {
@@ -263,6 +245,27 @@ class _HomePageState extends State<PunchHelper>{
       hasPunchOut = true;
     }
     updatePunchState(hasPunchIn, hasPunchOut);
+
+    var punchTime = document.querySelectorAll('div.caption_1');
+    if(punchTime.isNotEmpty){
+      if(punchTimes.isEmpty){
+        punchTimes = {};
+      }
+      for (var time in punchTime) {
+        print(time.innerHtml);
+        String result = time.innerHtml.replaceAll(new RegExp(r"\s+"), "");
+        result = result.substring(0,10);
+        if(result.substring(8,10) == "AM"){
+          punchTimes["AM"] = result.substring(0,8);
+        }else if(result.substring(8,10) == "PM"){
+          punchTimes["PM"] = result.substring(0,8);
+        }
+      }
+    }
+    setState(() {
+      print(punchTimes["AM"]);
+      print(punchTimes["PM"]);
+    });
   }
 
   void updateCookie(http.Response response) {
@@ -286,67 +289,172 @@ class _HomePageState extends State<PunchHelper>{
           backgroundColor: Colors.white,
           body: Column(children: [
             SizedBox(
-          height: 30,
+          height: 10,
         ),
             new CalendarTable(_calendarControllerController),
-            SizedBox(
-          height: 20,
-        ),
-            Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            Card(
+            Divider(
+                color: Colors.black
+            ),
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(8),
-                child: Text('Punch In: '),
+                padding: const EdgeInsets.all(10.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(5.0),
+                  child: Container(
+                    height: 100.0,
+                    width: 300,
+                    margin: const EdgeInsets.only(bottom: 6.0), //Same as `blurRadius` i guess
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5.0),
+                      color: Colors.amber,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey,
+                          offset: Offset(0.0, 1.0), //(x,y)
+                          blurRadius: 6.0,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(6.0),
+                          child: Text("Punch-In Time", style: TextStyle(fontSize: 26,color: Colors.deepPurple, fontWeight: FontWeight.bold ),),
+                        ),
+                        Divider(
+                          color: Colors.black45,
+                          thickness: 3,
+                          height: 3,
+                          indent: 20,
+                          endIndent: 20,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Text("AM " + punchTimes["AM"], style: TextStyle(fontSize: 25),),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-            punchIn
-                ? Icon(Icons.done, color: Colors.green)
-                : Icon(
-                    Icons.close,
-                    color: Colors.red,
-                  ),
-            Card(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(8),
-                child: Text('Punch Out:'),
+                padding: const EdgeInsets.all(10.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(5.0),
+                  child: Container(
+                    height: 100.0,
+                    width: 300,
+                    margin: const EdgeInsets.only(bottom: 6.0), //Same as `blurRadius` i guess
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5.0),
+                      color: Colors.amber,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey,
+                          offset: Offset(0.0, 1.0), //(x,y)
+                          blurRadius: 6.0,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(6.0),
+                          child: Text("Punch-Out Time", style: TextStyle(fontSize: 26,color: Colors.deepPurple, fontWeight: FontWeight.bold ),),
+                        ),
+                        Divider(
+                          color: Colors.black45,
+                          thickness: 3,
+                          height: 3,
+                          indent: 20,
+                          endIndent: 20,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Text("PM " + punchTimes["PM"], style: TextStyle(fontSize: 25),),
+                        )
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
-            punchOut
-                ? Icon(Icons.done, color: Colors.green)
-                : Icon(
-                    Icons.close,
-                    color: Colors.red,
-                  ),
-          ],
-        ),
-          SizedBox(
-          height: 20,
-        ),
-          Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _image != null
-                ? _image
-                : SpinKitCircle(
-                    color: Colors.black,
-                  ),
+        //     Row(
+        //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        //   children: [
+        //     Card(
+        //       child: Padding(
+        //         padding: EdgeInsets.all(8),
+        //         child: Text('Punch In: '),
+        //       ),
+        //     ),
+        //     punchIn
+        //         ? Icon(Icons.done, color: Colors.green)
+        //         : Icon(
+        //             Icons.close,
+        //             color: Colors.red,
+        //           ),
+        //     Card(
+        //       child: Padding(
+        //         padding: EdgeInsets.all(8),
+        //         child: Text('Punch Out:'),
+        //       ),
+        //     ),
+        //     punchOut
+        //         ? Icon(Icons.done, color: Colors.green)
+        //         : Icon(
+        //             Icons.close,
+        //             color: Colors.red,
+        //           ),
+        //   ],
+        // ),
+        //   SizedBox(
+        //   height: 20,
+        // ),
+
             Center(
-                child: Text(
-              _extractText,
-              style: TextStyle(fontSize: 20),
-            )),
-          ],
-        ),
-            SizedBox(
-          height: 20,
-        ),
-            Center(
-              child: Text(
-          'Scanning took $_scanTime ms',
-          style: TextStyle(color: Colors.red),
-        )),
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(5.0),
+                  child: Container(
+                    height: 60.0,
+                    margin: const EdgeInsets.only(bottom: 6.0), //Same as `blurRadius` i guess
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(5.0),
+                      color: Colors.white,
+                      border: Border.all(
+                          width: 3.0
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey,
+                          offset: Offset(0.0, 1.0), //(x,y)
+                          blurRadius: 6.0,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _image != null
+                            ? _image
+                            : SpinKitCircle(
+                          color: Colors.black,
+                        ),
+                        Center(
+                            child: Text(
+                              _extractText,
+                              style: TextStyle(fontSize: 20),
+                            )),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
       ]),
           floatingActionButton: FloatingActionButton(
             onPressed: () async {
