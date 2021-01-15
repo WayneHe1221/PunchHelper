@@ -252,7 +252,6 @@ class _HomePageState extends State<PunchHelper>{
         punchTimes = {};
       }
       for (var time in punchTime) {
-        print(time.innerHtml);
         String result = time.innerHtml.replaceAll(new RegExp(r"\s+"), "");
         result = result.substring(0,10);
         if(result.substring(8,10) == "AM"){
@@ -297,13 +296,11 @@ class _HomePageState extends State<PunchHelper>{
             ),
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(10.0),
+                padding: EdgeInsets.fromLTRB(30.0, 10.0, 30.0, 10.0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(5.0),
                   child: Container(
                     height: 100.0,
-                    width: 300,
-                    margin: const EdgeInsets.only(bottom: 6.0), //Same as `blurRadius` i guess
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(5.0),
                       color: Colors.amber,
@@ -330,7 +327,9 @@ class _HomePageState extends State<PunchHelper>{
                         ),
                         Padding(
                           padding: const EdgeInsets.all(10.0),
-                          child: Text("AM " + punchTimes["AM"], style: TextStyle(fontSize: 25),),
+                          child: punchIn
+                              ? Text("AM " + punchTimes["AM"], style: TextStyle(fontSize: 25),)
+                              : Icon(Icons.close, color: Colors.red,),
                         )
                       ],
                     ),
@@ -340,12 +339,11 @@ class _HomePageState extends State<PunchHelper>{
             ),
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(10.0),
+                padding: EdgeInsets.fromLTRB(30.0, 10.0, 30.0, 10.0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(5.0),
                   child: Container(
                     height: 100.0,
-                    width: 300,
                     margin: const EdgeInsets.only(bottom: 6.0), //Same as `blurRadius` i guess
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(5.0),
@@ -373,7 +371,9 @@ class _HomePageState extends State<PunchHelper>{
                         ),
                         Padding(
                           padding: const EdgeInsets.all(10.0),
-                          child: Text("PM " + punchTimes["PM"], style: TextStyle(fontSize: 25),),
+                          child: punchOut
+                          ? Text("PM " + punchTimes["PM"], style: TextStyle(fontSize: 25),)
+                          : Icon(Icons.close, color: Colors.red,),
                         )
                       ],
                     ),
@@ -381,42 +381,9 @@ class _HomePageState extends State<PunchHelper>{
                 ),
               ),
             ),
-        //     Row(
-        //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        //   children: [
-        //     Card(
-        //       child: Padding(
-        //         padding: EdgeInsets.all(8),
-        //         child: Text('Punch In: '),
-        //       ),
-        //     ),
-        //     punchIn
-        //         ? Icon(Icons.done, color: Colors.green)
-        //         : Icon(
-        //             Icons.close,
-        //             color: Colors.red,
-        //           ),
-        //     Card(
-        //       child: Padding(
-        //         padding: EdgeInsets.all(8),
-        //         child: Text('Punch Out:'),
-        //       ),
-        //     ),
-        //     punchOut
-        //         ? Icon(Icons.done, color: Colors.green)
-        //         : Icon(
-        //             Icons.close,
-        //             color: Colors.red,
-        //           ),
-        //   ],
-        // ),
-        //   SizedBox(
-        //   height: 20,
-        // ),
-
             Center(
               child: Padding(
-                padding: const EdgeInsets.all(10.0),
+                padding: EdgeInsets.fromLTRB(50.0, 10.0, 50.0, 10.0),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(5.0),
                   child: Container(
@@ -447,7 +414,7 @@ class _HomePageState extends State<PunchHelper>{
                         Center(
                             child: Text(
                               _extractText,
-                              style: TextStyle(fontSize: 20),
+                              style: TextStyle(fontSize: 20, backgroundColor: Colors.amber[200]),
                             )),
                       ],
                     ),
